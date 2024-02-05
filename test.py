@@ -7,13 +7,30 @@ import st7796
 import micropython
 micropython.alloc_emergency_exception_buf(100)
 
+def i2c_scan():
+    i2c_list    = [None, None]
+    i2c_list[0] = I2C(0, scl=Pin(1), sda=Pin(0))
+    i2c_list[1] = I2C(1, scl=Pin(3), sda=Pin(2))
+
+    for addr in i2c_list[0].scan():
+        print("Found device at address 0x%x" %(addr))
+
 #touch
 TOUCH_SCL = const(1)     # Capacitive touch screen IIC bus clock signal
 TOUCH_SDA = const(0)     # Capacitive touch screen IIC bus data signal
 TOUCH_RST = const(2)     # Capacitive touch screen reset control signal
 TOUCH_INT = const(3)     # Capacitive touch screen IIC bus touch interrupt signal
 i2c = I2C(0,scl=Pin(TOUCH_SCL),sda=Pin(TOUCH_SDA))
+i2c_scan()
 touch = ft6336.FT6336U(i2c,rst=Pin(TOUCH_RST))
+
+ST7796_MISO = 16
+ST7796_MOSI = 19
+ST7796_SCLK = 18
+ST7796_CS   = 17  # Chip select control pin
+ST7796_DC   = 20  # Data Command control pin
+ST7796_RST  = 21  # Reset pin (could connect to RST pin)
+ST7796_BACKLIGHT = 15
 
 spi = SPI(0, baudrate=27000000, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
 display = st7796.ST7796(spi=spi, dc=Pin(20), cs=Pin(17), rst=Pin(21), w=320, h=480, r=1)

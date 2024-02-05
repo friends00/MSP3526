@@ -2,7 +2,6 @@ from machine import Pin, SPI
 import time, struct
 from micropython import const
 
-USER_SETUP_ID = 36
 '''
 ST7796_MISO = 16
 ST7796_MOSI = 19
@@ -10,8 +9,8 @@ ST7796_SCLK = 18
 ST7796_CS   = 17  # Chip select control pin
 ST7796_DC   = 20  # Data Command control pin
 ST7796_RST  = 21  # Reset pin (could connect to RST pin)
+ST7796_BACKLIGHT = 15 #LED Backlight Control
 '''
-SPI_FREQUENCY = 80000000
 
 # Generic commands
 COLOR_MODE_65K = const(0x50)
@@ -129,14 +128,24 @@ ST7796_MADCTL_MH  = const(0x04) #Memory Data Access Control
 ST7796_MADCTL_COLOR_ORDER = ST7796_MADCTL_BGR
 
 MEMORY_BUFFER = const(1024) # SPI Write Buffer
+
 _ENCODE_PIXEL = ">H"
 _ENCODE_POS = ">HH"
 _DECODE_PIXEL = ">BBB"
 
+_BIT7 = const(0x80)
+_BIT6 = const(0x40)
+_BIT5 = const(0x20)
+_BIT4 = const(0x10)
+_BIT3 = const(0x08)
+_BIT2 = const(0x04)
+_BIT1 = const(0x02)
+_BIT0 = const(0x01)
+
 def color565(red, green=0, blue=0):
-    """
+    '''
     Convert red, green and blue values (0-255) into a 16-bit 565 encoding.
-    """
+    '''
     try:
         red, green, blue = red  # see if the first var is a tuple/list
     except TypeError:
@@ -145,12 +154,12 @@ def color565(red, green=0, blue=0):
 
 
 def _encode_pos(x, y):
-    """Encode a postion into bytes."""
+    '''Encode a postion into bytes.'''
     return struct.pack(_ENCODE_POS, x, y)
 
 
 def _encode_pixel(color):
-    """Encode a pixel color into bytes."""
+    '''Encode a pixel color into bytes.'''
     return struct.pack(_ENCODE_PIXEL, color)
 
 
@@ -171,7 +180,6 @@ class ST7796:
         self.dc.init(self.dc.OUT, value=0)
         self.rst.init(self.rst.OUT, value=0)
         self.buffer = bytearray(MEMORY_BUFFER * 2)
-        #self.color_map = bytearray(b'\x00\x00\xFF\xFF') #default white foregraound, black background
         self.hard_reset()
         self.soft_reset()
         self.sleep_mode(False)
@@ -179,44 +187,14 @@ class ST7796:
         time.sleep_ms(50)
         self._rotation(self.rotation)
         self.init()
-        #self.inversion_mode(True)
-        #time.sleep_ms(10)
-        #self._write(ST7796_NORON)
-        #time.sleep_ms(10)
-        #self._write(ST7796_DISPON)
         time.sleep_ms(500)
         self.fill(0)
 
     def init(self):
       time.sleep_ms(120)
-      #self._write(ST7796_SWRESET) #Software reset
-      #time.sleep_ms(120)
       self._write(ST7796_CSCON,b'\xC3') #Enable extension command 2 partI
       self._write(ST7796_CSCON,b'\x96') #Enable extension command 2 partII
       
-      #self._write(ST7796_RDSELFDIAG,b'\x03\x80\x02') #Read Display Self-Diagnostic Result
-      #self._write(ST7796_PWCTLB,b'\x00\xc1\x30') #Power Control B
-      #self._write(ST7796_PWONCTL,b'\x64\x03\x12\x81') #Power On Control
-      #self._write(ST7796_DTCTLA, b'\x85\x00\x78') #Driver Timing Control a
-      #self._write(ST7796_PWCTLA, b'\x39\x2c\x00\x34\x02') #Power Control A
-      #self._write(ST7796_PRCTL, b'\x20') #Pump Ratio Control
-      #self._write(ST7796_DTCTLB, b'\x00\x00') #Driver Timing Control B
-      #self._write(ST7796_PWCTL1, b'\x23') #Power Control 1
-      #self._write(ST7796_PWCTL2, b'\x10') #Power Control 2
-      #self._write(ST7796_VMCTL1,b'\x3E\x28') #VCOM Control VCOM=0.9
-      #self._write(ST7796_VMCTL2,b'\x86') #VCOM Control VCOM=0.9
-      
-      #self._write(ST7796_MADCTL,b'\x48') #Memory Data Access Control
-      #self._rotation(self.rotation)
-      #self._write(ST7796_PIXFMT,b'\x55') #Interface Pixel Format (Colo Mode to 655k)
-      #self._write(ST7796_BPC,b'\x02\x03\x00\x04')  #Blanking Porch Control   
-      #self._write(ST7796_FRMCTL1,b'\x80\x10') #Frame Rate Control (In Normal Mode/Full Colors)
-
-      #self._write(0xE4,b'\x31')
-      #self._write(ST7796_DFUNCTR,b'\x02\x02\X3B') #Display Function Control
-      #self._write(ST7796_DFUNCTL, b'\x80\x02\x3B') #Display Function Control
-      #self._write(ST7796_EN3G, b'\x00') #Enable 3G
-      #self._write(ST7796_GASET, b'\x01') #Gamma Set
  
       self._write(ST7796_INVCTL,b'\x01') #Display Inversion Control
       self._write(ST7796_EMSET,b'\xC6') #Entry Mode Set
@@ -279,9 +257,7 @@ class ST7796:
 
 
     def hard_reset(self):
-        """
-        Hard reset display.
-        """
+        ''' Hard reset display. '''
         self.cs.off()
         self.rst.on()
         time.sleep_ms(50)
@@ -292,19 +268,17 @@ class ST7796:
         self.cs.on()
 
     def soft_reset(self):
-        """
-        Soft reset display.
-        """
+        ''' Soft reset display. '''
         self._write(ST7796_SWRESET)
         time.sleep_ms(150)
 
     def sleep_mode(self, value):
-        """
+        '''
         Enable or disable display sleep mode.
         Args:
             value (bool): if True enable sleep mode. if False disable sleep
             mode
-        """
+        '''
         if value:
             self._write(ST7796_SLPIN)
         else:
@@ -312,25 +286,25 @@ class ST7796:
 
 
     def inversion_mode(self, value):
-        """
+        '''
         Enable or disable display inversion mode.
         Args:
             value (bool): if True enable inversion mode. if False disable
             inversion mode
-        """
+        '''
         if value:
             self._write(ST7796_INVON)
         else:
             self._write(ST7796_INVOFF)
 
     def _set_color_mode(self, mode):
-        """
+        '''
         Set display color mode.
         Args:
             mode (int): color mode
                 COLOR_MODE_65K, COLOR_MODE_262K, COLOR_MODE_12BIT,
                 COLOR_MODE_16BIT, COLOR_MODE_18BIT, COLOR_MODE_16M
-        """
+        '''
         self._write(ST7796_PIXFMT, bytes([mode & 0x77]))
 
     def SetPosition(self,x,y):
@@ -356,7 +330,7 @@ class ST7796:
         self._write(ST7796_RAMWR, data)
 
     def fill_rect(self, x, y, width, height, color):
-        """
+        '''
         Draw a rectangle at the given location, size and filled with color.
         Args:
             x (int): Top left corner x coordinate
@@ -364,7 +338,7 @@ class ST7796:
             width (int): Width in pixels
             height (int): Height in pixels
             color (int): 565 encoded color
-        """
+        '''
         self._set_window(x, y, x + width - 1, y + height - 1)
         chunks, rest = divmod(width * height, MEMORY_BUFFER)
         pixel = _encode_pixel(color)
@@ -377,75 +351,75 @@ class ST7796:
             self._writedata(pixel * rest)
   
     def _set_columns(self, start, end):
-        """
+        '''
         Send CASET (column address set) command to display.
         Args:
             start (int): column start address
             end (int): column end address
-        """
+        '''
         if start <= end <= self.width:
             self._write(ST7796_CASET, _encode_pos(
                 start+self.xstart, end + self.xstart))
 
     def _set_rows(self, start, end):
-        """
+        '''
         Send RASET (row address set) command to display.
         Args:
             start (int): row start address
             end (int): row end address
-       """
+       '''
         if start <= end <= self.height:
             self._write(ST7796_RASET, _encode_pos(
                 start+self.ystart, end+self.ystart))
 
     def _set_window(self, x0, y0, x1, y1):
-        """
+        '''
         Set window to column and row address.
         Args:
             x0 (int): column start address
             y0 (int): row start address
             x1 (int): column end address
             y1 (int): row end address
-        """
+        '''
         self._set_columns(x0, x1)
         self._set_rows(y0, y1)
         self._write(ST7796_RAMWR)
     
     def vline(self, x, y, length, color):
-        """
+        '''
         Draw vertical line at the given location and color.
         Args:
             x (int): x coordinate
             Y (int): y coordinate
             length (int): length of line
             color (int): 565 encoded color
-        """
+        '''
         self.fill_rect(x, y, 1, length, color)
 
     def hline(self, x, y, length, color):
-        """
+        '''
         Draw horizontal line at the given location and color.
         Args:
             x (int): x coordinate
             Y (int): y coordinate
             length (int): length of line
             color (int): 565 encoded color
-        """
+        '''
         self.fill_rect(x, y, length, 1, color)
 
     def pixel(self, x, y, color):
-        """
+        '''
         Draw a pixel at the given location and color.
         Args:
             x (int): x coordinate
             Y (int): y coordinate
             color (int): 565 encoded color
-        """
+        '''
         self._set_window(x, y, x, y)
         self._writedata(_encode_pixel(color))
     
     def blit_buffer(self, buffer, x, y, width, height):
-        """
+        '''
         Copy buffer to display at the given location.
         Args:
             buffer (bytes): Data to copy to display
@@ -453,12 +427,12 @@ class ST7796:
             Y (int): Top left corner y coordinate
             width (int): Width
             height (int): Height
-        """
+        '''
         self._set_window(x, y, x + width - 1, y + height - 1)
         self._writedata(buffer)
 
     def rect(self, x, y, w, h, color):
-        """
+        '''
         Draw a rectangle at the given location, size and color.
         Args:
             x (int): Top left corner x coordinate
@@ -466,22 +440,22 @@ class ST7796:
             width (int): Width in pixels
             height (int): Height in pixels
             color (int): 565 encoded color
-        """
+        '''
         self.hline(x, y, w, color)
         self.vline(x, y, h, color)
         self.vline(x + w - 1, y, h, color)
         self.hline(x, y + h - 1, w, color)
 
     def fill(self, color):
-        """
+        '''
         Fill the entire FrameBuffer with the specified color.
         Args:
             color (int): 565 encoded color
-        """
+        '''
         self.fill_rect(0, 0, self.width, self.height, color)
 
     def line(self, x0, y0, x1, y1, color):
-        """
+        '''
         Draw a single pixel wide line starting at x0, y0 and ending at x1, y1.
         Args:
             x0 (int): Start point x coordinate
@@ -489,7 +463,7 @@ class ST7796:
             x1 (int): End point x coordinate
             y1 (int): End point y coordinate
             color (int): 565 encoded color
-        """
+        '''
         steep = abs(y1 - y0) > abs(x1 - x0)
         if steep:
             x0, y0 = y0, x0
@@ -517,7 +491,7 @@ class ST7796:
 
 
     def _text8(self, font, text, x0, y0, color=WHITE, background=BLACK):
-        """
+        '''
         Internal method to write characters with width of 8 and
         heights of 8 or 16.
         Args:
@@ -527,7 +501,7 @@ class ST7796:
             y0 (int): row to start drawing at
             color (int): 565 encoded color to use for characters
             background (int): 565 encoded color to use for background
-        """
+        '''
         for char in text:
             ch = ord(char)
             if (font.FIRST <= ch < font.LAST
@@ -617,7 +591,7 @@ class ST7796:
                 x0 += 8
 
     def _text16(self, font, text, x0, y0, color=WHITE, background=BLACK):
-        """
+        '''
         Internal method to draw characters with width of 16 and heights of 16
         or 32.
         Args:
@@ -627,7 +601,7 @@ class ST7796:
             y0 (int): row to start drawing at
             color (int): 565 encoded color to use for characters
             background (int): 565 encoded color to use for background
-        """
+        '''
         for char in text:
             ch = ord(char)
             if (font.FIRST <= ch < font.LAST
@@ -780,7 +754,7 @@ class ST7796:
             x0 += font.WIDTH
 
     def text(self, font, text, x0, y0, color=WHITE, background=BLACK):
-        """
+        '''
         Draw text on display in specified font and colors. 8 and 16 bit wide
         fonts are supported.
         Args:
@@ -790,14 +764,14 @@ class ST7796:
             y0 (int): row to start drawing at
             color (int): 565 encoded color to use for characters
             background (int): 565 encoded color to use for background
-        """
+        '''
         if font.WIDTH == 8:
             self._text8(font, text, x0, y0, color, background)
         else:
             self._text16(font, text, x0, y0, color, background)
 
     def bitmap(self, bitmap, x, y, index=0):
-        """
+        '''
         Draw a bitmap on display at the specified column and row
         Args:
             bitmap (bitmap_module): The module containing the bitmap to draw
@@ -805,7 +779,7 @@ class ST7796:
             y (int): row to start drawing at
             index (int): Optional index of bitmap to draw from multiple bitmap
                 module
-        """
+        '''
         bitmap_size = bitmap.HEIGHT * bitmap.WIDTH
         buffer_len = bitmap_size * 2
         buffer = bytearray(buffer_len)
@@ -831,7 +805,7 @@ class ST7796:
 
     # @micropython.native
     def write(self, font, string, x, y, fg=WHITE, bg=BLACK):
-        """
+        '''
         Write a string using a converted true-type font on the display starting
         at the specified column and row
         Args:
@@ -841,7 +815,7 @@ class ST7796:
             y (int): row to start writing
             fg (int): foreground color, optional, defaults to WHITE
             bg (int): background color, optional, defaults to BLACK
-        """
+        '''
         buffer_len = font.HEIGHT * font.MAX_WIDTH * 2
         buffer = bytearray(buffer_len)
         fg_hi = (fg & 0xff00) >> 8
@@ -886,13 +860,13 @@ class ST7796:
                 pass
 
     def write_width(self, font, string):
-        """
+        '''
         Returns the width in pixels of the string if it was written with the
         specified font
         Args:
             font (font): The module containing the converted true-type font
             string (string): The string to measure
-        """
+        '''
         width = 0
         for character in string:
             try:
